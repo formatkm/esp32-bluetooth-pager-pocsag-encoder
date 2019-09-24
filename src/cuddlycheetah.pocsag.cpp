@@ -1,3 +1,4 @@
+
 #include <cuddlycheetah.pocsag.h>
 /**
  * Calculate the CRC error checking code for the given word.

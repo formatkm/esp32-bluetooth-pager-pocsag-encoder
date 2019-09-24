@@ -23,11 +23,6 @@ class MyServerCallback: public BLEServerCallbacks {
     //todo display `connected` on the screen
     Serial.println("LE onConnect");
     // memset(payload, 0x00, BUFF_LEN);
-    /*connected = true;
-    hasLongText = false;
-    hasText = false;
-    hasTimeText = false;
-    yScrollPos = 0;*/
   }
 
   void onDisconnect(BLEServer* pServer) {
@@ -36,6 +31,9 @@ class MyServerCallback: public BLEServerCallbacks {
     //connected = false;
   }
 };
+const char* sendText;
+bool send = false;
+
 void emulatePOCSAG(const char* msg);
 class DisplayCharacteristicCallback: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
@@ -49,8 +47,8 @@ class DisplayCharacteristicCallback: public BLECharacteristicCallbacks {
     Serial.print(str.length());
     Serial.println("}");
     Serial.println(str.c_str());
-
-    emulatePOCSAG(str.c_str());
+    sendText = str.c_str();
+    send = true;
   }
 };
 
@@ -109,7 +107,7 @@ void emulatePOCSAG(const char* msg) {
 	int Sym=0;
   // https://raw.githubusercontent.com/nkolban/ESP32_BLE_Arduino/master/examples/BLE_server_multiconnect/BLE_server_multiconnect.ino
   encodeTransmission(IS_NUMERIC, CAPCODE, FUNCTION_BITS, message, strlen(message), transmission);
-	char *pocsagData=(char *)malloc(messageLength*32 + 1);
+  char *pocsagData=(char *)malloc(messageLength*32 + 1);
 
   //Serial.println("generating");
   for (int i = 0;i < messageLength; i++) {
@@ -129,6 +127,8 @@ void emulatePOCSAG(const char* msg) {
     digitalWrite(POCSAG_PIN, bit);
     delayMicroseconds(1000000 / 1200);
   }
+	free(transmission);
+  free(pocsagData);
   /*Serial.println("");
   Serial.println("transmitting");
   for (int i = 0; i < messageLength * 32; i++) {
@@ -155,8 +155,15 @@ void setup() {
   Serial.println('Bluetooth Empfänger V1 - by <@cuddlycheetah>');
   setupBT();
   setupPOCSAG();
-  emulatePOCSAG("42");
+  fakePOCSAG();
+
+  emulatePOCSAG(String("UU").c_str());
+  emulatePOCSAG(String("44").c_str());
 }
 
 void loop() {
+  if (send == true) {
+    send = false;
+    emulatePOCSAG(String(sendText).c_str());
+  }
 }
