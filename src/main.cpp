@@ -17,24 +17,24 @@ static const BLEUUID DISPLAY_MESSAGE_CHARACTERISTIC_UUID = BLEUUID("8d8218b6-97b
 
 // #define BUFF_LEN 140
 // char* payload = new char[BUFF_LEN];
-
+bool connected = false;
 class MyServerCallback: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     //todo display `connected` on the screen
     Serial.println("LE onConnect");
     // memset(payload, 0x00, BUFF_LEN);
+    connected = true;
   }
 
   void onDisconnect(BLEServer* pServer) {
     // todo display `disconnected` on the screen
     Serial.println("LE onDisconnect");
-    //connected = false;
+    connected = false;
   }
 };
 const char* sendText;
 bool send = false;
 
-void emulatePOCSAG(const char* msg);
 class DisplayCharacteristicCallback: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     // write text to OLED
@@ -94,14 +94,14 @@ void setupPOCSAG() {
   digitalWrite(POCSAG_PIN, 1);
 }
 // to simulate some activity
-void emulatePOCSAG(const char* msg) {
+void emulatePOCSAG(int address, const char* msg) {
   char* message = (char*)msg;
 
   Serial.print("emulatePOCSAG "); Serial.println(message);
   Serial.print("length="); Serial.println(strlen(message));
   size_t messageLength = IS_NUMERIC
-    ? numericMessageLength(CAPCODE, strlen(message))
-    : textMessageLength(CAPCODE, strlen(message));
+    ? numericMessageLength(address, strlen(message))
+    : textMessageLength(address, strlen(message));
 
   uint32_t* transmission = (uint32_t*) malloc(sizeof(uint32_t) * messageLength+2);
 	int Sym=0;
@@ -149,21 +149,38 @@ void fakePOCSAG() {
 }
 #pragma endregion
 
-
+#include <soc/rtc.h>
 void setup() {
+  
   Serial.begin(57600);
-  Serial.println('Bluetooth Empfänger V1 - by <@cuddlycheetah>');
+  Serial.println();
+  Serial.println();
+  Serial.println("Bluetooth Empfänger V1 - by <@cuddlycheetah>");
+  Serial.println();
+  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+  Serial.print("wakeupreason="); Serial.println(wakeup_reason);
+  esp_sleep_enable_timer_wakeup(5 * 1000000);
   setupBT();
   setupPOCSAG();
-  fakePOCSAG();
+  // rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
+  // 
+  // emulatePOCSAG(String("44").c_str());
 
-  emulatePOCSAG(String("UU").c_str());
-  emulatePOCSAG(String("44").c_str());
+  //if (wakeup_reason == 0) {
+  //  emulatePOCSAG(CAPCODE, String("UUU42").c_str());
+  //}
 }
 
 void loop() {
   if (send == true) {
     send = false;
-    emulatePOCSAG(String(sendText).c_str());
+    emulatePOCSAG(CAPCODE, String(sendText).c_str());
+  } else {
+    if (connected == true) {
+      fakePOCSAG();
+    }
+  }
+  if (connected == false && millis() >= 5 * 1000) {
+    esp_deep_sleep_start(); // after 15s after wakeup, going to sleep for 30s
   }
 }
